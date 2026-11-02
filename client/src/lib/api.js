@@ -67,7 +67,8 @@ export const isUnavailable = (err) => err instanceof ApiError && (err.status ===
  */
 async function withFallback(request, fallback) {
   try {
-    const data = await request();
+    // Already serving cached data? Don't keep users waiting on a slow/unhealthy API.
+    const data = await request(useUiStore.getState().usingFallback ? 4000 : undefined);
     if (useUiStore.getState().usingFallback) useUiStore.getState().setUsingFallback(false);
     return data;
   } catch (err) {
@@ -80,9 +81,9 @@ async function withFallback(request, fallback) {
 }
 
 export const endpoints = {
-  events: (params, signal) => withFallback(() => api('/events', { query: params, signal }), { name: 'fallbackEvents', args: [params] }),
-  eventsMeta: () => withFallback(() => api('/events/meta'), { name: 'fallbackMeta', args: [] }),
-  event: (slug) => withFallback(() => api(`/events/${encodeURIComponent(slug)}`), { name: 'fallbackEvent', args: [slug] }),
+  events: (params, signal) => withFallback((timeout) => api('/events', { query: params, signal, timeout }), { name: 'fallbackEvents', args: [params] }),
+  eventsMeta: () => withFallback((timeout) => api('/events/meta', { timeout }), { name: 'fallbackMeta', args: [] }),
+  event: (slug) => withFallback((timeout) => api(`/events/${encodeURIComponent(slug)}`, { timeout }), { name: 'fallbackEvent', args: [slug] }),
   register: (payload) => api('/registrations', { method: 'POST', body: payload }),
   myRegistrations: () => api('/registrations/me'),
   verifyTicket: (code) => api(`/registrations/${encodeURIComponent(code)}`),
