@@ -1,0 +1,9 @@
+{
+  "name": "Encore — Events worth showing up for",
+  "short_name": "Encore",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080a",
+  "theme_color": "#d2ff3a",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

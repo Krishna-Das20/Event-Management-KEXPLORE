@@ -1,0 +1,27 @@
+{
+  "name": "encore-events",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Encore — a modern, full-stack event discovery & registration platform (K Explore Web Designing task).",
+  "type": "module",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c magenta,green \"npm run dev -w server\" \"npm run dev -w client\"",
+    "dev:web": "npm run dev -w client",
+    "dev:api": "npm run dev -w server",
+    "build": "npm run build -w client",
+    "preview": "npm run preview -w client",
+    "lint": "npm run lint -w client",
+    "seed": "npm run seed -w server",
+    "start": "npm start -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}

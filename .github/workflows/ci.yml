@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Lint & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: API smoke test (boots without a database)
+        run: |
+          API_PORT=5055 node server/src/index.js &
+          sleep 3
+          curl -s http://localhost:5055/api/health | tee /dev/stderr | grep -q '"db"'

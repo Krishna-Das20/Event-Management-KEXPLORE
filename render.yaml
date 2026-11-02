@@ -1,0 +1,25 @@
+# Optional: deploy the API as a standalone, long-running service on Render.
+# The production site runs the same Express app as a Vercel Serverless Function
+# (see vercel.json); use this blueprint if you prefer a dedicated API host.
+# After creating the service, set VITE_API_URL on the front-end to <render-url>/api.
+services:
+  - type: web
+    name: encore-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: CLIENT_URL
+        value: https://encore-kexplore.vercel.app
