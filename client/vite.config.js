@@ -19,16 +19,9 @@ export default defineConfig({
   },
   build: {
     target: 'es2022',
-    rollupOptions: {
-      output: {
-        // Long-lived vendor chunks cache well across deploys; page-specific libs (zod, forms, QR) stay lazy.
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          if (/[\\/](react|react-dom|scheduler|react-router)[\\/]/.test(id)) return 'react';
-          if (/[\\/](motion|framer-motion|motion-dom|motion-utils)[\\/]/.test(id)) return 'motion';
-          if (/[\\/](@radix-ui|@floating-ui|react-remove-scroll|cmdk|sonner)[\\/]/.test(id)) return 'ui';
-        },
-      },
-    },
+    // Rollup's automatic chunking keeps page-specific libraries (zod, forms, QR codes) in lazy route
+    // chunks. Hand-written vendor chunks are avoided on purpose: they can create circular chunk
+    // imports that evaluate a library before React itself.
+    chunkSizeWarningLimit: 800,
   },
 });
