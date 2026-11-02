@@ -7,7 +7,7 @@
 **A modern, full-stack event discovery & registration platform**
 built for the **K Explore — Web Designing** task.
 
-[**🌐 Live site → encore-kexplore.vercel.app**](https://encore-kexplore.vercel.app) &nbsp;·&nbsp; [Source](https://github.com/Krishna-Das20/Event-Management-KEXPLORE)
+[**🌐 Live site → encore-kexplore.vercel.app**](https://encore-kexplore.vercel.app) &nbsp;·&nbsp; [API on Render](https://encore-api-ycyn.onrender.com/api/health) &nbsp;·&nbsp; [Source](https://github.com/Krishna-Das20/Event-Management-KEXPLORE)
 
 ![React](https://img.shields.io/badge/React_19-20232a?logo=react&logoColor=61dafb)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-0b1120?logo=tailwindcss&logoColor=38bdf8)
@@ -16,6 +16,7 @@ built for the **K Explore — Web Designing** task.
 ![MongoDB](https://img.shields.io/badge/MongoDB_Atlas-023430?logo=mongodb&logoColor=00ed64)
 ![Google](https://img.shields.io/badge/Google_Sign--In-fff?logo=google&logoColor=4285f4)
 ![Vercel](https://img.shields.io/badge/Deployed_on_Vercel-000?logo=vercel)
+![Render](https://img.shields.io/badge/API_on_Render-46e3b7?logo=render&logoColor=000)
 
 <img src="docs/screenshots/home-dark.png" alt="Encore home page in dark mode" width="100%" />
 
@@ -70,7 +71,7 @@ built for the **K Explore — Web Designing** task.
 ### Beyond the brief
 
 - **MongoDB Atlas** database with an Express 5 REST API (atomic seat reservation, duplicate protection, rate limiting).
-- **Sign in with Google** (Google Identity Services + One Tap) with secure http-only session cookies; tickets booked as a guest are claimed automatically when you sign in.
+- **Sign in with Google** (Google Identity Services: popup button, One Tap, and a full-page redirect flow for phones, in-app browsers and blocked popups) with secure http-only session cookies; tickets booked as a guest are claimed automatically when you sign in.
 - **QR-code tickets** and a public **`/verify/:code` door-check page** (personal details masked).
 - **⌘K / Ctrl K command palette** with live event search, recently viewed events, categories, pages and actions.
 - **Saved events** (wishlist) and **recently viewed** history.
@@ -94,7 +95,7 @@ built for the **K Explore — Web Designing** task.
 
 **Back end** — Node.js · Express 5 · Mongoose 8 / MongoDB Atlas · Zod · `google-auth-library` · JSON Web Tokens · Helmet · CORS · express-rate-limit · compression
 
-**Tooling & hosting** — Vite 7 · ESLint 9 · npm workspaces · GitHub Actions CI · Vercel (static site + Serverless Function in Singapore, next to the Atlas cluster)
+**Tooling & hosting** — Vite 7 · ESLint 9 · npm workspaces · GitHub Actions (CI + keep-warm) · Vercel (static site + Serverless Function in Singapore) · Render (standalone API, Singapore) · MongoDB Atlas (Singapore)
 
 ## Architecture
 
@@ -112,7 +113,9 @@ flowchart LR
   API_CLIENT -. API down? .-> SNAP[Bundled catalogue<br/>read-only fallback]
 ```
 
-- **One repository, two workspaces.** `client/` is the React app, `server/` is a standard Express app. Locally it runs as a long-lived server; on Vercel the very same app is mounted as a Serverless Function (`api/index.js`). A `render.yaml` blueprint is included if you prefer hosting the API on Render.
+- **One repository, two workspaces.** `client/` is the React app, `server/` is a standard Express app. The same API code is deployed twice:
+  - **Vercel** — mounted as a Serverless Function (`api/index.js`) behind the website's own `/api/*` route. The site uses this one: no cold starts and first-party cookies.
+  - **Render** — a standalone, long-running Node service at [`encore-api-ycyn.onrender.com`](https://encore-api-ycyn.onrender.com/api/health), defined by [`render.yaml`](render.yaml) and kept warm by a scheduled GitHub Action. To route the website through Render instead, point the `/api/(.*)` rewrite in `vercel.json` at `https://encore-api-ycyn.onrender.com/api/$1`.
 - **Same-origin API.** The browser always calls `/api/*` (Vite proxies it in development, Vercel rewrites it in production), so the session cookie is first-party — no third-party-cookie problems, no CORS preflights.
 - **Serverless-friendly database access.** The Mongo connection is cached across warm invocations, and the demo catalogue is seeded automatically the first time the database is empty.
 
@@ -164,7 +167,8 @@ Base URL: `/api`. All responses are JSON; errors look like `{ "error": { "messag
 | `GET` | `/registrations/me` | The signed-in user’s registrations 🔒 |
 | `GET` | `/registrations/:code` | Verify a ticket (personal details masked) |
 | `POST` | `/registrations/:code/cancel` | Cancel — owner session, or the booking email for guests |
-| `POST` | `/auth/google` | Exchange a Google ID token for a session cookie |
+| `POST` | `/auth/google` | Exchange a Google ID token for a session cookie (popup / One Tap) |
+| `POST` | `/auth/google/redirect` | Google's full-page redirect callback (form post) → session cookie → back to the app |
 | `GET` | `/auth/me` | Current user (or `null`) |
 | `POST` | `/auth/logout` | End the session |
 | `POST` | `/newsletter` | Subscribe to the weekly lineup |
@@ -194,7 +198,7 @@ Base URL: `/api`. All responses are JSON; errors look like `{ "error": { "messag
 │       ├── routes/           # events, registrations, auth, newsletter
 │       └── validators/       # Zod schemas (mirrors the client rules)
 ├── docs/screenshots/
-├── render.yaml               # optional: host the API on Render
+├── render.yaml               # Render blueprint for the standalone API
 └── vercel.json               # build, rewrites, headers, function region
 ```
 
@@ -231,25 +235,31 @@ npm run dev    # API on http://localhost:5000, web app on http://localhost:5173
 
 ## Deployment
 
-The production site is a single **Vercel** project: Vite builds the front end to `client/dist`, and `api/index.js` serves the Express app as a Serverless Function in `sin1` (Singapore), the same region as the MongoDB Atlas cluster.
+| Piece | Where | Notes |
+| --- | --- | --- |
+| Website + API | **Vercel** — [encore-kexplore.vercel.app](https://encore-kexplore.vercel.app) | Vite builds `client/dist`; `api/index.js` serves the Express app as a Serverless Function in `sin1` (Singapore). Git-connected: every push to `main` deploys. |
+| Standalone API | **Render** — [encore-api-ycyn.onrender.com](https://encore-api-ycyn.onrender.com/api/health) | Free web service in Singapore from [`render.yaml`](render.yaml): `npm ci --workspace=server --omit=dev` → `npm start --workspace=server`, health check `/api/health`, auto-deploys when `server/**` changes. |
+| Database | **MongoDB Atlas** M0 (AWS Singapore) | Network Access allows `0.0.0.0/0` because Vercel and Render use dynamic IPs; access is protected by the database user’s credentials. |
+| Google sign-in | **Google Cloud** OAuth client (Web) | Authorized JavaScript origins: the Vercel domains + localhost. Authorized redirect URIs: `…/api/auth/google/redirect` for the full-page flow. App published to production. |
 
-Environment variables (Vercel → Project → Settings → Environment Variables):
+Environment variables (set in Vercel and Render; see `server/.env.example` and `client/.env.example`):
 
 | Variable | Used by | Notes |
 | --- | --- | --- |
 | `MONGODB_URI` | API | Atlas connection string |
 | `JWT_SECRET` | API | Long random string for signing session cookies |
 | `GOOGLE_CLIENT_ID` | API | Verifies Google ID tokens |
-| `CLIENT_URL` | API | Allowed origin(s) for cross-site calls |
+| `CLIENT_URL` | API | Comma-separated origins allowed to call the API cross-site |
 | `VITE_GOOGLE_CLIENT_ID` | Front end | Same Google client ID, exposed at build time |
+| `NODE_VERSION` | Render | `22` |
 
-MongoDB Atlas: Vercel functions use dynamic IPs, so the cluster’s **Network Access** list must include `0.0.0.0/0` (access is still protected by the database user’s credentials). If the database is unreachable, the site stays usable through its bundled read-only catalogue.
+If the database is ever unreachable, the website stays usable through its bundled read-only catalogue and queues new registrations until the API recovers.
 
 ## Accessibility, performance & security
 
 - **Accessibility** — semantic landmarks, skip link, keyboard-navigable menus/dialogs/comboboxes (Radix), visible focus rings, `aria-live` regions for results and countdowns, reduced-motion support, WCAG-conscious colour tokens in both themes.
 - **Performance** — route-level code splitting, vendor chunking, responsive `srcset` images from the Unsplash CDN, lazy loading, self-hosted variable fonts, query caching with `keepPreviousData`, and the fallback catalogue loaded only when needed.
-- **Security** — Google ID tokens verified server-side, http-only `SameSite=Lax` session cookie, Helmet headers, strict Zod validation on every input, rate limiting on auth/registration, regex-escaped search, atomic seat reservation, and masked personal data on the public verify page. Secrets live only in environment variables (`.env` files are git-ignored).
+- **Security** — Google ID tokens verified server-side (plus Google’s double-submit CSRF token on the redirect flow), http-only `SameSite=Lax` session cookie, Helmet headers, strict Zod validation on every input, rate limiting on auth/registration, regex-escaped search, atomic seat reservation, and masked personal data on the public verify page. Secrets live only in environment variables (`.env` files are git-ignored).
 
 ## Screenshots
 

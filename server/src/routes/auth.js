@@ -20,23 +20,24 @@ const authLimiter = rateLimit({
   message: { error: { message: 'Too many sign-in attempts. Please wait a few minutes.', code: 'RATE_LIMITED' } },
 });
 
-/**
- * POST /api/auth/google — exchange a Google Identity Services ID token for a session.
- * The token's signature, audience and expiry are verified against Google's public keys.
- */
-router.post('/google', authLimiter, validate({ body: googleAuthBody }), async (req, res) => {
+/** Verify a Google Identity Services ID token (signature, audience, expiry) and return its payload. */
+async function verifyGoogleCredential(credential) {
   if (!env.googleClientId) throw new HttpError(503, 'Google sign-in is not configured.', { code: 'AUTH_NOT_CONFIGURED' });
   googleClient ??= new OAuth2Client(env.googleClientId);
 
   let payload;
   try {
-    const ticket = await googleClient.verifyIdToken({ idToken: req.valid.body.credential, audience: env.googleClientId });
+    const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: env.googleClientId });
     payload = ticket.getPayload();
   } catch {
     throw unauthorized('Google sign-in could not be verified. Please try again.');
   }
   if (!payload?.email || !payload.email_verified) throw unauthorized('Your Google account email is not verified.');
+  return payload;
+}
 
+/** Upsert the user, link tickets they booked as a guest, and start a session. */
+async function signInWithGoogle(res, payload) {
   const user = await User.findOneAndUpdate(
     { googleId: payload.sub },
     {
@@ -57,7 +58,36 @@ router.post('/google', authLimiter, validate({ body: googleAuthBody }), async (r
   );
 
   issueSession(res, user);
+  return { user, claimed };
+}
+
+/**
+ * POST /api/auth/google — popup / One Tap flow: the browser sends the ID token as JSON.
+ */
+router.post('/google', authLimiter, validate({ body: googleAuthBody }), async (req, res) => {
+  const payload = await verifyGoogleCredential(req.valid.body.credential);
+  const { user, claimed } = await signInWithGoogle(res, payload);
   res.json({ user: toUserDTO(user), claimed });
+});
+
+/**
+ * POST /api/auth/google/redirect — full-page redirect flow (phones, in-app browsers, blocked popups).
+ * Google posts the ID token as a form; we start the session and send the user back into the app.
+ * The double-submit CSRF token is checked whenever the browser includes Google's g_csrf_token cookie.
+ */
+router.post('/google/redirect', authLimiter, async (req, res) => {
+  const credential = typeof req.body?.credential === 'string' ? req.body.credential : '';
+  const csrfCookie = req.cookies?.g_csrf_token;
+  try {
+    if (!credential) throw unauthorized('Missing Google credential.');
+    if (csrfCookie && csrfCookie !== req.body?.g_csrf_token) throw unauthorized('Sign-in request could not be validated.');
+    const payload = await verifyGoogleCredential(credential);
+    const { claimed } = await signInWithGoogle(res, payload);
+    res.redirect(303, `/?signin=success${claimed ? `&claimed=${claimed}` : ''}`);
+  } catch (err) {
+    console.error('[auth] redirect sign-in failed:', err.message);
+    res.redirect(303, '/?signin=error');
+  }
 });
 
 /** GET /api/auth/me — the current session's user, or null. */

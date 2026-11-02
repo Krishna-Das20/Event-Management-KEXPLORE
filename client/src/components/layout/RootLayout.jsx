@@ -7,7 +7,7 @@ import { useUiStore } from '@/store/ui';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
 import { CommandPalette } from './CommandPalette';
-import { SignInDialog, OneTap } from '@/components/auth/SignInDialog';
+import { SignInDialog, SignInReturnHandler, OneTap } from '@/components/auth/SignInDialog';
 import { SmoothScroll, useLenis } from '@/providers/SmoothScroll';
 import { TicketSync } from '@/providers/TicketSync';
 import { useTheme } from '@/providers/ThemeProvider';
@@ -121,6 +121,7 @@ export default function RootLayout() {
       <CommandPalette />
       <SignInDialog />
       <OneTap />
+      <SignInReturnHandler />
       <TicketSync />
       <OfflineBanner />
       <FallbackNotice />

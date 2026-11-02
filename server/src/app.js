@@ -27,6 +27,7 @@ export function createApp() {
   );
   app.use(compression());
   app.use(express.json({ limit: '50kb' }));
+  app.use(express.urlencoded({ extended: false, limit: '10kb' })); // Google redirect sign-in posts a form
   app.use(cookieParser());
   if (!env.isProd) app.use(morgan('dev'));
 

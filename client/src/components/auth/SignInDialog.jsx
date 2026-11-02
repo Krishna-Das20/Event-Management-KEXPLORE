@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
 import { GoogleLogin, useGoogleOneTapLogin } from '@react-oauth/google';
 import { Cloud, Sparkles, Ticket, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog } from '@/components/ui/Dialog';
 import { LogoMark } from '@/components/ui/Logo';
-import { useSession, useSignIn } from '@/lib/queries';
+import { qk, useSession, useSignIn } from '@/lib/queries';
+import { endpoints } from '@/lib/api';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useUiStore } from '@/store/ui';
 
@@ -35,31 +38,70 @@ const PERKS = [
   { icon: Ticket, text: 'Cancel or manage bookings any time' },
 ];
 
-/** Measures its own width so the Google button fills the dialog (it renders in an iframe). */
-function GoogleButton({ onCredential }) {
-  const { theme } = useTheme();
-  const ref = useRef(null);
-  const [width, setWidth] = useState(320);
+// Phones and in-app browsers (Instagram, WhatsApp…) often block or mangle popups,
+// so they use Google's full-page redirect flow; desktops get the smoother popup.
+const prefersRedirect = () =>
+  window.matchMedia('(pointer: coarse)').matches || /FBAN|FBAV|Instagram|Line\/|WhatsApp|; wv\)/i.test(navigator.userAgent);
 
-  useEffect(() => {
-    if (ref.current) setWidth(Math.min(400, Math.round(ref.current.offsetWidth)));
+const RETURN_KEY = 'encore.returnTo';
+
+/** Measures its own width first so the Google button (an iframe) fills the dialog without re-mounting. */
+function GoogleButton({ onCredential, mode }) {
+  const { theme } = useTheme();
+  const [width, setWidth] = useState(0);
+  const measure = useCallback((node) => {
+    if (node) setWidth(Math.min(400, Math.round(node.offsetWidth)));
   }, []);
 
   return (
-    <div ref={ref} className="flex min-h-11 w-full justify-center">
-      <GoogleLogin
-        key={`${theme}-${width}`}
-        onSuccess={({ credential }) => onCredential(credential)}
-        onError={() => toast.error('Google sign-in was cancelled or blocked by the browser.')}
-        theme={theme === 'dark' ? 'filled_black' : 'outline'}
-        shape="pill"
-        size="large"
-        text="continue_with"
-        width={String(width)}
-        logo_alignment="center"
-      />
+    <div ref={measure} className="flex min-h-11 w-full justify-center">
+      {width > 0 && (
+        <GoogleLogin
+          key={`${theme}-${mode}`}
+          onSuccess={({ credential }) => onCredential(credential)}
+          onError={() => toast.error('Google sign-in was cancelled or blocked by the browser.')}
+          click_listener={() => sessionStorage.setItem(RETURN_KEY, window.location.pathname + window.location.search)}
+          ux_mode={mode}
+          login_uri={mode === 'redirect' ? `${window.location.origin}/api/auth/google/redirect` : undefined}
+          theme={theme === 'dark' ? 'filled_black' : 'outline'}
+          shape="pill"
+          size="large"
+          text="continue_with"
+          width={String(width)}
+          logo_alignment="center"
+        />
+      )}
     </div>
   );
+}
+
+/** After Google's redirect flow lands on /?signin=…, greet the user and send them back where they were. */
+export function SignInReturnHandler() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const status = params.get('signin');
+
+  useEffect(() => {
+    if (!status) return;
+    const returnTo = sessionStorage.getItem(RETURN_KEY) || '/';
+    sessionStorage.removeItem(RETURN_KEY);
+    if (status === 'success') {
+      const claimed = Number(params.get('claimed') ?? 0);
+      queryClient.fetchQuery({ queryKey: qk.me, queryFn: endpoints.me, staleTime: 0 }).then(({ user }) => {
+        queryClient.invalidateQueries({ queryKey: qk.myRegistrations });
+        if (user)
+          toast.success(`Welcome, ${user.name.split(' ')[0]}!`, {
+            description: claimed ? `We found ${claimed} ticket${claimed > 1 ? 's' : ''} booked with your email and added them to your account.` : 'Your tickets now sync across devices.',
+          });
+      });
+    } else {
+      toast.error('Sign-in failed', { description: 'Google sign-in could not be completed. Please try again.' });
+    }
+    navigate(returnTo.startsWith('/') && !returnTo.startsWith('//') ? returnTo : '/', { replace: true });
+  }, [status, params, navigate, queryClient]);
+
+  return null;
 }
 
 export function SignInDialog() {
@@ -67,6 +109,7 @@ export function SignInDialog() {
   const reason = useUiStore((s) => s.signInReason);
   const setOpen = useUiStore((s) => s.setSignInOpen);
   const { handle, pending } = useGoogleCredentialHandler();
+  const [mode, setMode] = useState(prefersRedirect() ? 'redirect' : 'popup');
 
   return (
     <Dialog open={open} onOpenChange={setOpen} title="Sign in to Encore" hideTitle size="sm">
@@ -89,7 +132,14 @@ export function SignInDialog() {
 
         <div className="mt-7 w-full">
           {GOOGLE_ENABLED ? (
-            <GoogleButton onCredential={handle} />
+            <>
+              <GoogleButton onCredential={handle} mode={mode} />
+              {mode === 'popup' && (
+                <button type="button" onClick={() => setMode('redirect')} className="mt-3 text-xs text-muted underline underline-offset-4 hover:text-fg">
+                  Popup blocked? Use full-page sign-in
+                </button>
+              )}
+            </>
           ) : (
             <p className="rounded-xl bg-surface-2 p-3 text-sm text-muted">Google sign-in isn’t configured for this deployment.</p>
           )}

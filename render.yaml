@@ -1,5 +1,5 @@
 # Render Blueprint for the Encore API (Express 5 + MongoDB Atlas).
-# Live service: https://encore-api.onrender.com/api/health
+# Live service: https://encore-api-ycyn.onrender.com/api/health
 # The web app on Vercel calls its own same-origin copy of this API (api/index.js),
 # so this service is an independent deployment of the same code.
 services:
