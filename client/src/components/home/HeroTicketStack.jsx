@@ -12,10 +12,11 @@ import { cn } from '@/lib/cn';
 // Each card sits at its own depth (z) — inside preserve-3d, z-index is ignored and
 // coplanar cards would z-fight. Cards stay fully opaque (back cards are dimmed with a
 // brightness filter instead) so nothing ever shows through while the deck reshuffles.
+// `opacity: 1` must stay in every position: cards enter from `initial.opacity: 0`.
 const POSITIONS = [
-  { x: 0, y: 0, z: 0, rotate: -4, scale: 1, filter: 'brightness(1)' },
-  { x: 46, y: -26, z: -70, rotate: 4, scale: 0.95, filter: 'brightness(0.82)' },
-  { x: 88, y: -50, z: -140, rotate: 11, scale: 0.9, filter: 'brightness(0.64)' },
+  { x: 0, y: 0, z: 0, rotate: -4, scale: 1, opacity: 1, filter: 'brightness(1)' },
+  { x: 46, y: -26, z: -70, rotate: 4, scale: 0.95, opacity: 1, filter: 'brightness(0.82)' },
+  { x: 88, y: -50, z: -140, rotate: 11, scale: 0.9, opacity: 1, filter: 'brightness(0.64)' },
 ];
 
 /** Decorative barcode made from a deterministic stripe pattern. */
