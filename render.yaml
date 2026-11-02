@@ -1,20 +1,27 @@
-# Optional: deploy the API as a standalone, long-running service on Render.
-# The production site runs the same Express app as a Vercel Serverless Function
-# (see vercel.json); use this blueprint if you prefer a dedicated API host.
-# After creating the service, set VITE_API_URL on the front-end to <render-url>/api.
+# Render Blueprint for the Encore API (Express 5 + MongoDB Atlas).
+# Live service: https://encore-api.onrender.com/api/health
+# The web app on Vercel calls its own same-origin copy of this API (api/index.js),
+# so this service is an independent deployment of the same code.
 services:
   - type: web
     name: encore-api
     runtime: node
     plan: free
     region: singapore
-    rootDir: server
-    buildCommand: npm install
-    startCommand: npm start
+    branch: main
+    buildCommand: npm ci --workspace=server --omit=dev
+    startCommand: npm start --workspace=server
     healthCheckPath: /api/health
+    buildFilter:
+      paths:
+        - server/**
+        - package.json
+        - package-lock.json
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "22"
       - key: JWT_SECRET
         generateValue: true
       - key: MONGODB_URI

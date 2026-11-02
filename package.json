@@ -9,7 +9,7 @@
     "server"
   ],
   "engines": {
-    "node": ">=20.11"
+    "node": ">=22.12"
   },
   "scripts": {
     "dev": "concurrently -n api,web -c magenta,green \"npm run dev -w server\" \"npm run dev -w client\"",
