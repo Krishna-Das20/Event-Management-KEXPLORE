@@ -9,13 +9,13 @@ import { useTheme } from '@/providers/ThemeProvider';
 const itemCls =
   'flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm outline-none transition-colors data-[highlighted]:bg-surface-2';
 
-export function UserMenu({ user }) {
+export function UserMenu({ user, onOpenChange }) {
   const navigate = useNavigate();
   const signOut = useSignOut();
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <M.Root modal={false}>
+    <M.Root modal={false} onOpenChange={onOpenChange}>
       <M.Trigger
         className="rounded-full ring-offset-2 ring-offset-bg transition hover:ring-2 hover:ring-line-strong"
         aria-label="Account menu"

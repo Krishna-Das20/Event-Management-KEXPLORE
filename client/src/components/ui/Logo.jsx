@@ -14,11 +14,19 @@ export function LogoMark({ className }) {
   );
 }
 
-export function Logo({ className }) {
+/** `compact` folds the wordmark away (animated), leaving just the spark. */
+export function Logo({ className, compact = false }) {
   return (
-    <span className={cn('inline-flex items-center gap-2', className)}>
+    <span className={cn('inline-flex items-center', className)}>
       <LogoMark className="size-8 transition-transform duration-500 ease-[var(--ease-spring)] group-hover:rotate-[60deg]" />
-      <span className="font-display text-[1.35rem] font-bold tracking-[-0.04em]">encore</span>
+      <span
+        className={cn(
+          'overflow-x-clip font-display text-[1.35rem] font-bold tracking-[-0.04em] whitespace-nowrap transition-[max-width,opacity,padding] duration-500 ease-out motion-reduce:transition-none',
+          compact ? 'max-w-0 pl-0 opacity-0' : 'max-w-[6rem] pl-2 opacity-100',
+        )}
+      >
+        encore
+      </span>
     </span>
   );
 }
