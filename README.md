@@ -238,7 +238,7 @@ npm run dev    # API on http://localhost:5000, web app on http://localhost:5173
 | Piece | Where | Notes |
 | --- | --- | --- |
 | Website + API | **Vercel** — [encore-kexplore.vercel.app](https://encore-kexplore.vercel.app) | Vite builds `client/dist`; `api/index.js` serves the Express app as a Serverless Function in `sin1` (Singapore). Git-connected: every push to `main` deploys. |
-| Standalone API | **Render** — [encore-api-ycyn.onrender.com](https://encore-api-ycyn.onrender.com/api/health) | Free web service in Singapore from [`render.yaml`](render.yaml): `npm ci --workspace=server --omit=dev` → `npm start --workspace=server`, health check `/api/health`, auto-deploys when `server/**` changes. |
+| Standalone API | **Render** — [encore-api-ycyn.onrender.com](https://encore-api-ycyn.onrender.com/api/health) | Free web service in Singapore from [`render.yaml`](render.yaml): `npm ci --workspace=server --omit=dev` → `npm start --workspace=server`, health check `/api/health`. Redeploy with **Manual Deploy** in the Render dashboard or `render deploys create <service-id>` (the service was created from the public repo URL, so it has no GitHub webhook). |
 | Database | **MongoDB Atlas** M0 (AWS Singapore) | Network Access allows `0.0.0.0/0` because Vercel and Render use dynamic IPs; access is protected by the database user’s credentials. |
 | Google sign-in | **Google Cloud** OAuth client (Web) | Authorized JavaScript origins: the Vercel domains + localhost. Authorized redirect URIs: `…/api/auth/google/redirect` for the full-page flow. App published to production. |
 
